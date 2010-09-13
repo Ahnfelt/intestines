@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, Rank2Types, DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts, Rank2Types, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances #-}
 
 module Test.Feature where
 
@@ -7,8 +7,13 @@ import Feature
 
 data Position = Position (Int, Int) deriving (Show, Typeable)
 data Health = Health Int deriving (Show, Typeable)
+data Movable = Movable deriving (Show, Typeable)
 
-p1 = Position (3, 4) .:. Health 10 .:. nil
+instance Has Position l => Supports Movable l
+instance Supports Position l
+instance Supports Health l
+
+p1 = Movable .:. Health 10 .:. Position (3, 4) .:. nil
 p2 = Health 9 .:. Position (5, 3) .:. nil
 p3 = Position (5, 3) .:. nil
 p4 = Health 9 .:. nil
