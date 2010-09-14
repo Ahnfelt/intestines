@@ -6,13 +6,15 @@
 
 module Feature (
     Supports (..), (.:.), Combine ((+++)), 
-    Entity, toEntity, getFeature, GetFeatures (..), 
+    Entity, toEntity, updateEntity, getFeature, GetFeatures (..), 
+    Updateable (..),
     int, Convert (..), (.$.), 
-    new, method, 
+    object, method, 
     get, set, update,
     Has, has, nil) where
 
 import Control.Concurrent.STM
+import Control.Monad
 import Data.HList
 import Data.Dynamic
 import Data.Maybe
@@ -38,8 +40,8 @@ f .$. v = do
     return $ f' v'
 
 
-new :: (TVar Entity -> STM Entity) -> STM Entity
-new constructor = do
+object :: (TVar Entity -> STM Entity) -> STM Entity
+object constructor = do
     this <- newTVar undefined
     result <- constructor this
     writeTVar this result
@@ -64,8 +66,17 @@ update label f record = do
     writeTVar tvar (f value)
 
 
-newtype Entity = Entity [Dynamic]
+updateEntity :: Entity -> STM ()
+updateEntity (Entity u _) = u
 
+
+data Entity = Entity (STM ()) [Dynamic]
+
+
+class Updateable e where
+    updater :: e -> Maybe (STM ())
+    updater _ = Nothing
+    
 
 class Supports f l
 
@@ -90,16 +101,22 @@ has l = hOccurs l
 nil = HNil
 
 data ToDynamic = ToDynamic
+data ToUpdater = ToUpdater
 
-instance (Typeable a) => Apply ToDynamic a Dynamic where 
-    apply ToDynamic = toDyn
+instance Typeable a => Apply ToDynamic a Dynamic where 
+    apply ToDynamic a = toDyn a
 
-toEntity :: (HMapOut ToDynamic r Dynamic) => r -> Entity
-toEntity l = Entity $ hMapOut ToDynamic l
+instance Updateable a => Apply ToUpdater a (Maybe (STM ())) where 
+    apply ToUpdater a = updater a
 
+toEntity :: (HMapOut ToDynamic r Dynamic, HMapOut ToUpdater r (Maybe (STM ()))) => r -> Entity
+toEntity l = Entity (sequence_ $ catMaybes us) ds
+    where
+        ds = hMapOut ToDynamic l :: [Dynamic]
+        us = hMapOut ToUpdater l :: [Maybe (STM ())]
 
 getFeature :: Typeable e => Entity -> Maybe e
-getFeature (Entity ds) = case catMaybes $ map fromDynamic ds of
+getFeature (Entity _ ds) = case catMaybes $ map fromDynamic ds of
     e:_ -> Just e
     [] -> Nothing
 
@@ -110,39 +127,39 @@ instance GetFeatures HNil where
     getFeatures _ = Just HNil
 
 instance (GetFeatures l, Typeable e) => GetFeatures (HCons e l) where
-    getFeatures (Entity ds) = case catMaybes $ map fromDynamic ds of
-        e:_ -> case getFeatures (Entity ds) of
-            Just l -> Just (HCons e l)
+    getFeatures e@(Entity _ ds) = case catMaybes $ map fromDynamic ds of
+        e1:_ -> case getFeatures e of
+            Just l -> Just (HCons e1 l)
             Nothing -> Nothing
         [] -> Nothing
 
 instance (Typeable e1, Typeable e2) => GetFeatures (e1, e2) where
-    getFeatures (Entity ds) = case getFeatures (Entity ds) of
+    getFeatures e@(Entity _ ds) = case getFeatures e of
         Just (HCons e1 (HCons e2 HNil)) -> Just (e1, e2)
         Nothing -> Nothing
 
 instance (Typeable e1, Typeable e2, Typeable e3) => GetFeatures (e1, e2, e3) where
-    getFeatures (Entity ds) = case getFeatures (Entity ds) of
+    getFeatures e@(Entity _ ds) = case getFeatures e of
         Just (HCons e1 (HCons e2 (HCons e3 HNil))) -> Just (e1, e2, e3)
         Nothing -> Nothing
 
 instance (Typeable e1, Typeable e2, Typeable e3, Typeable e4) => GetFeatures (e1, e2, e3, e4) where
-    getFeatures (Entity ds) = case getFeatures (Entity ds) of
+    getFeatures e@(Entity _ ds) = case getFeatures e of
         Just (HCons e1 (HCons e2 (HCons e3 (HCons e4 HNil)))) -> Just (e1, e2, e3, e4)
         Nothing -> Nothing
 
 instance (Typeable e1, Typeable e2, Typeable e3, Typeable e4, Typeable e5) => GetFeatures (e1, e2, e3, e4, e5) where
-    getFeatures (Entity ds) = case getFeatures (Entity ds) of
+    getFeatures e@(Entity _ ds) = case getFeatures e of
         Just (HCons e1 (HCons e2 (HCons e3 (HCons e4 (HCons e5 HNil))))) -> Just (e1, e2, e3, e4, e5)
         Nothing -> Nothing
 
 instance (Typeable e1, Typeable e2, Typeable e3, Typeable e4, Typeable e5, Typeable e6) => GetFeatures (e1, e2, e3, e4, e5, e6) where
-    getFeatures (Entity ds) = case getFeatures (Entity ds) of
+    getFeatures e@(Entity _ ds) = case getFeatures e of
         Just (HCons e1 (HCons e2 (HCons e3 (HCons e4 (HCons e5 (HCons e6 HNil)))))) -> Just (e1, e2, e3, e4, e5, e6)
         Nothing -> Nothing
 
 instance (Typeable e1, Typeable e2, Typeable e3, Typeable e4, Typeable e5, Typeable e6, Typeable e7) => GetFeatures (e1, e2, e3, e4, e5, e6, e7) where
-    getFeatures (Entity ds) = case getFeatures (Entity ds) of
+    getFeatures e@(Entity _ ds) = case getFeatures e of
         Just (HCons e1 (HCons e2 (HCons e3 (HCons e4 (HCons e5 (HCons e6 (HCons e7 HNil))))))) -> Just (e1, e2, e3, e4, e5, e6, e7)
         Nothing -> Nothing
 

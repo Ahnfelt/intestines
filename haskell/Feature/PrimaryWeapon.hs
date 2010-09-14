@@ -6,17 +6,19 @@ import Control.Concurrent.STM
 import Data.Typeable
 import Data.Record.Label
 import Feature
-import Feature.Trigger
+import qualified Feature.Trigger as Trigger
 
-data PrimaryWeapon = PrimaryWeapon {
-    _weapon :: TVar Trigger 
+data Type = Type {
+    _weapon :: TVar Trigger.Type 
     } deriving (Typeable)
 
-$(mkLabels [''PrimaryWeapon])
+$(mkLabels [''Type])
 
-instance Supports PrimaryWeapon l
+instance Supports Type l
 
-new :: Trigger -> STM PrimaryWeapon
+instance Updateable Type
+
+new :: Trigger.Type -> STM Type
 new trigger = 
-    return PrimaryWeapon .$. trigger
+    return Type .$. trigger
 

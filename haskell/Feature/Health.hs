@@ -7,15 +7,17 @@ import Data.Typeable
 import Data.Record.Label
 import Feature
 
-data Health = Health {
+data Type = Type {
     _health :: TVar Double
     } deriving (Typeable)
 
-$(mkLabels [''Health])
+$(mkLabels [''Type])
 
-instance Supports Health l
+instance Supports Type l
 
-new :: Double -> STM Health
+instance Updateable Type
+
+new :: Double -> STM Type
 new health = 
-    return Health .$. health
+    return Type .$. health
 

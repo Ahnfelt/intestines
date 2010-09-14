@@ -16,6 +16,8 @@ $(mkLabels [''Type])
 
 instance Supports Type l
 
+instance Updateable Type
+
 new :: Position -> STM Type
 new position = 
     return Type .$. position

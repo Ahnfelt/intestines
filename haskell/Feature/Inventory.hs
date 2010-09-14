@@ -7,15 +7,17 @@ import Data.Typeable
 import Data.Record.Label
 import Feature
 
-data Inventory = Inventory {
+data Type = Type {
     _inventory :: TVar [Entity]
     } deriving (Typeable)
 
-$(mkLabels [''Inventory])
+$(mkLabels [''Type])
 
-instance Supports Inventory l
+instance Supports Type l
 
-new :: [Entity] -> STM Inventory
+instance Updateable Type
+
+new :: [Entity] -> STM Type
 new entity = 
-    return Inventory .$. entity
+    return Type .$. entity
 

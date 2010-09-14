@@ -7,17 +7,18 @@ import Data.Typeable
 import Data.Record.Label
 import Feature
 
-data Cooldown = Cooldown {
+data Type = Type {
     _total :: TVar Int,
     _current :: TVar Int
     } deriving (Typeable)
 
-$(mkLabels [''Cooldown])
+$(mkLabels [''Type])
 
-instance Supports Cooldown l
+instance Supports Type l
 
+instance Updateable Type
 
-new :: Int -> Int -> STM Cooldown
+new :: Int -> Int -> STM Type
 new total current = 
-    return Cooldown .$. total .$. current
+    return Type .$. total .$. current
 

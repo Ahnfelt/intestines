@@ -6,18 +6,20 @@ import Control.Concurrent.STM
 import Data.Typeable
 import Data.Record.Label
 import Feature
-import Feature.Magazine
-import Feature.Cooldown
+import qualified Feature.Magazine as Magazine
+import qualified Feature.Cooldown as Cooldown
 
-data Trigger = Trigger {
+data Type = Type {
     _trigger :: STM ()
     } deriving (Typeable)
     
-$(mkLabels [''Trigger])
+$(mkLabels [''Type])
 
-instance (Has Magazine l, Has Cooldown l) => Supports Trigger l
+instance (Has Magazine.Type l, Has Cooldown.Type l) => Supports Type l
 
-new :: STM () -> STM Trigger
+instance Updateable Type
+
+new :: STM () -> STM Type
 new trigger = 
-    return Trigger .$. trigger
+    return Type .$. trigger
 

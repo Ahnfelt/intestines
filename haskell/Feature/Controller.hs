@@ -7,17 +7,20 @@ import Data.Typeable
 import Data.Record.Label
 import Feature
 import qualified Feature.Position as Position
-import Feature.Inventory
+import qualified Feature.Inventory as Inventory
 
-data Controller = Controller {
+data Type = Type {
     _controller :: STM ()
     } deriving (Typeable)
     
-$(mkLabels [''Controller])
+$(mkLabels [''Type])
 
-instance (Has Position.Type l, Has Inventory l) => Supports Controller l
+instance (Has Position.Type l, Has Inventory.Type l) => Supports Type l
 
-new :: STM () -> STM Controller
+instance Updateable Type where
+    updater self = Just $ getL controller self
+
+new :: STM () -> STM Type
 new controller = 
-    return Controller .$. controller
+    return Type .$. controller
 

@@ -7,17 +7,19 @@ import Data.Typeable
 import Data.Record.Label
 import Feature
 
-data Magazine = Magazine {
+data Type = Type {
     _magazines :: TVar Int,
     _capacity :: Int,
     _ammo :: TVar Int
     } deriving (Typeable)
 
-$(mkLabels [''Magazine])
+$(mkLabels [''Type])
 
-instance Supports Magazine l
+instance Supports Type l
 
-new :: Int -> Int -> Int -> STM Magazine
+instance Updateable Type
+
+new :: Int -> Int -> Int -> STM Type
 new magazines capacity ammo = 
-    return Magazine .$. magazines .$. capacity .$. ammo
+    return Type .$. magazines .$. capacity .$. ammo
 
