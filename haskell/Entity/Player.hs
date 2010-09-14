@@ -14,7 +14,7 @@ import qualified Feature.PrimaryWeapon as PrimaryWeapon
 import qualified Feature.Inventory as Inventory
 import qualified Feature.Trigger as Trigger
 
-new :: Game Entity
+new :: Game (Entity ())
 new = object $ \this -> do
     position <- Position.new (0,0)
     health <- Health.new 100
@@ -25,12 +25,12 @@ new = object $ \this -> do
     return $ toEntity $ controller .:. position .:. health .:. primaryWeapon .:. inventory .:. nil
     where
         control this = do
-            let Just position = getFeature this
+            let position = requireFeature this
             (x, y) <- get Position.position position
             if x >= 10 
                 then Position.moveTo (0, y) position
                 else Position.moveBy (1, 0) position
-            let Just weapon = getFeature this
+            let weapon = requireFeature this
             when (x == 0) $ do
                 trigger <- get PrimaryWeapon.weapon weapon
                 getL Trigger.trigger trigger

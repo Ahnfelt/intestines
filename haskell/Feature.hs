@@ -7,7 +7,9 @@
 module Feature (
     GameState (..), Game, runGame, Var,
     Supports (..), (.:.), Combine ((+++)), 
-    Entity, toEntity, updateEntity, getFeature, GetFeatures (..), 
+    Entity, toEntity, updateEntity, 
+    requireFeature, RequireFeatures (..), 
+    getFeature, GetFeatures (..), 
     Updateable (..),
     Convert (..), (.$.), 
     object, method, 
@@ -49,14 +51,15 @@ f .$. v = do
     return $ f' v'
 
 
-object :: (Var Entity -> Game Entity) -> Game Entity
+object :: (Var (Entity p) -> Game (Entity p)) -> Game (Entity ())
 object constructor = do
     this <- lift $ newTVar undefined
     result <- constructor this
     lift $ writeTVar this result
-    return result
+    let Entity m ds = result
+    return (Entity m ds)
 
-method :: (Entity -> Game a) -> Var Entity -> Game a
+method :: (Entity p -> Game a) -> Var (Entity p) -> Game a
 method function this = do
     this' <- lift $ readTVar this
     function this'
@@ -75,11 +78,11 @@ update label f record = do
     lift $ writeTVar tvar (f value)
 
 
-updateEntity :: Entity -> Game ()
+updateEntity :: Entity p -> Game ()
 updateEntity (Entity u _) = u
 
 
-data Entity = Entity (Game ()) [Dynamic]
+data Entity p = Entity (Game ()) [Dynamic]
 
 
 class Updateable e where
@@ -118,19 +121,55 @@ instance Typeable a => Apply ToDynamic a Dynamic where
 instance Updateable a => Apply ToUpdater a (Maybe (Game ())) where 
     apply ToUpdater a = updater a
 
-toEntity :: (HMapOut ToDynamic r Dynamic, HMapOut ToUpdater r (Maybe (Game ()))) => r -> Entity
+toEntity :: (HMapOut ToDynamic r Dynamic, HMapOut ToUpdater r (Maybe (Game ()))) => r -> Entity r
 toEntity l = Entity (sequence_ $ catMaybes us) ds
     where
         ds = hMapOut ToDynamic l :: [Dynamic]
         us = hMapOut ToUpdater l :: [Maybe (Game ())]
 
-getFeature :: (Typeable e, Updateable e) => Entity -> Maybe e
+requireFeature :: (Typeable e, Updateable e, Has e p) => Entity p -> e
+requireFeature e = let Just e' = getFeature e in e'
+
+getFeature :: (Typeable e, Updateable e) => Entity p -> Maybe e
 getFeature (Entity _ ds) = case catMaybes $ map fromDynamic ds of
     e:_ -> Just e
     [] -> Nothing
 
+class GetFeatures l => RequireFeatures p l where
+    requireFeatures :: Entity p -> l
+
+instance RequireFeatures p HNil where
+    requireFeatures _ = HNil
+
+instance (RequireFeatures p l, Typeable e, Has p e) => RequireFeatures p (HCons e l) where
+    requireFeatures e = let Just e' = getFeatures e in e'
+
+instance (Typeable e1, Typeable e2, 
+    Has p e1, Has p e2) => RequireFeatures p (e1, e2) where
+    requireFeatures e = let Just e' = getFeatures e in e'
+
+instance (Typeable e1, Typeable e2, Typeable e3, 
+    Has p e1, Has p e2, Has p e3) => RequireFeatures p (e1, e2, e3) where
+    requireFeatures e = let Just e' = getFeatures e in e'
+
+instance (Typeable e1, Typeable e2, Typeable e3, Typeable e4, 
+    Has p e1, Has p e2, Has p e3, Has p e4) => RequireFeatures p (e1, e2, e3, e4) where
+    requireFeatures e = let Just e' = getFeatures e in e'
+
+instance (Typeable e1, Typeable e2, Typeable e3, Typeable e4, Typeable e5, 
+    Has p e1, Has p e2, Has p e3, Has p e4, Has p e5) => RequireFeatures p (e1, e2, e3, e4, e5) where
+    requireFeatures e = let Just e' = getFeatures e in e'
+
+instance (Typeable e1, Typeable e2, Typeable e3, Typeable e4, Typeable e5, Typeable e6, 
+    Has p e1, Has p e2, Has p e3, Has p e4, Has p e5, Has p e6) => RequireFeatures p (e1, e2, e3, e4, e5, e6) where
+    requireFeatures e = let Just e' = getFeatures e in e'
+
+instance (Typeable e1, Typeable e2, Typeable e3, Typeable e4, Typeable e5, Typeable e6, Typeable e7, 
+    Has p e1, Has p e2, Has p e3, Has p e4, Has p e5, Has p e6, Has p e7) => RequireFeatures p (e1, e2, e3, e4, e5, e6, e7) where
+    requireFeatures e = let Just e' = getFeatures e in e'
+
 class GetFeatures l where
-    getFeatures :: Entity -> Maybe l
+    getFeatures :: Entity p -> Maybe l
 
 instance GetFeatures HNil where
     getFeatures _ = Just HNil
