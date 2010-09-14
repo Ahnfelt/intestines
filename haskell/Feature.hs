@@ -1,19 +1,21 @@
-{-# LANGUAGE FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, FunctionalDependencies, UndecidableInstances, TemplateHaskell, TypeOperators #-}
+{-# LANGUAGE FlexibleInstances, FlexibleContexts, MultiParamTypeClasses, FunctionalDependencies, UndecidableInstances, TemplateHaskell, TypeOperators, TypeSynonymInstances #-}
 -- NOTE: UndecidableInstances is required by the Combine type class,
 --       which is a restricted copy of HAppend in the HList module.
 --       It can be removed yielding a slightly less precise system.
 --       It is also used for the Has type class synonym.
 
 module Feature (
+    GameState (..), Game, runGame, Var,
     Supports (..), (.:.), Combine ((+++)), 
     Entity, toEntity, updateEntity, getFeature, GetFeatures (..), 
     Updateable (..),
-    int, Convert (..), (.$.), 
+    Convert (..), (.$.), 
     object, method, 
     get, set, update,
     Has, has, nil) where
 
 import Control.Concurrent.STM
+import Control.Monad.Reader
 import Control.Monad
 import Data.HList
 import Data.Dynamic
@@ -21,60 +23,67 @@ import Data.Maybe
 import Data.Record.Label
 
 
-int :: Int -> Int
-int = id
+data GameState = GameState {}
+
+type Game a = ReaderT GameState STM a
+
+type Var a = TVar a
+
+runGame :: GameState -> Game a -> IO a
+runGame s m = atomically $ runReaderT m s
+
 
 class Convert a b where
-    convert :: a -> STM b
+    convert :: a -> Game b
 
 instance Convert a a where
     convert = return
 
-instance Convert a (TVar a) where
-    convert a = newTVar a
+instance Convert a (Var a) where
+    convert a = lift $ newTVar a
 
-(.$.) :: (Convert a a') => STM (a' -> b) -> a -> STM b
+(.$.) :: (Convert a a') => Game (a' -> b) -> a -> Game b
 f .$. v = do 
     f' <- f
     v' <- convert v
     return $ f' v'
 
 
-object :: (TVar Entity -> STM Entity) -> STM Entity
+object :: (Var Entity -> Game Entity) -> Game Entity
 object constructor = do
-    this <- newTVar undefined
+    this <- lift $ newTVar undefined
     result <- constructor this
-    writeTVar this result
+    lift $ writeTVar this result
     return result
 
-method :: (Entity -> STM a) -> TVar Entity -> STM a
+method :: (Entity -> Game a) -> Var Entity -> Game a
 method function this = do
-    this' <- readTVar this
+    this' <- lift $ readTVar this
     function this'
     
 
-get :: (record :-> TVar value) -> record -> STM value
-get label record = readTVar (getL label record)
+get :: (record :-> Var value) -> record -> Game value
+get label record = lift $ readTVar (getL label record)
 
-set :: (record :-> TVar value) -> value -> record -> STM ()
-set label value record = writeTVar (getL label record) value
+set :: (record :-> Var value) -> value -> record -> Game ()
+set label value record = lift $ writeTVar (getL label record) value
 
-update :: (record :-> TVar value) -> (value -> value) -> record -> STM ()
+update :: (record :-> Var value) -> (value -> value) -> record -> Game ()
 update label f record = do
     let tvar = getL label record
-    value <- readTVar tvar
-    writeTVar tvar (f value)
+    value <- lift $ readTVar tvar
+    lift $ writeTVar tvar (f value)
 
 
-updateEntity :: Entity -> STM ()
+updateEntity :: Entity -> Game ()
 updateEntity (Entity u _) = u
 
 
-data Entity = Entity (STM ()) [Dynamic]
+data Entity = Entity (Game ()) [Dynamic]
 
 
 class Updateable e where
-    updater :: e -> Maybe (STM ())
+    updater :: e -> Maybe (Game ())
     updater _ = Nothing
     
 
@@ -106,16 +115,16 @@ data ToUpdater = ToUpdater
 instance Typeable a => Apply ToDynamic a Dynamic where 
     apply ToDynamic a = toDyn a
 
-instance Updateable a => Apply ToUpdater a (Maybe (STM ())) where 
+instance Updateable a => Apply ToUpdater a (Maybe (Game ())) where 
     apply ToUpdater a = updater a
 
-toEntity :: (HMapOut ToDynamic r Dynamic, HMapOut ToUpdater r (Maybe (STM ()))) => r -> Entity
+toEntity :: (HMapOut ToDynamic r Dynamic, HMapOut ToUpdater r (Maybe (Game ()))) => r -> Entity
 toEntity l = Entity (sequence_ $ catMaybes us) ds
     where
         ds = hMapOut ToDynamic l :: [Dynamic]
-        us = hMapOut ToUpdater l :: [Maybe (STM ())]
+        us = hMapOut ToUpdater l :: [Maybe (Game ())]
 
-getFeature :: Typeable e => Entity -> Maybe e
+getFeature :: (Typeable e, Updateable e) => Entity -> Maybe e
 getFeature (Entity _ ds) = case catMaybes $ map fromDynamic ds of
     e:_ -> Just e
     [] -> Nothing

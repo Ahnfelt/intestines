@@ -8,10 +8,11 @@ import Control.Monad
 import Data.Maybe
 
 run n = do
-    p <- atomically Player.new
+    let state = GameState {}
+    p <- runGame state Player.new
     replicateM_ n $ do 
-        atomically $ updateEntity p
+        runGame state $ updateEntity p
         let Just pos = getFeature p
-        pos' <- atomically $ get Position.position pos
+        pos' <- runGame state $ get Position.position pos
         print pos'
 
