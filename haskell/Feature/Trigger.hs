@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell, DeriveDataTypeable #-}
 
 module Feature.Trigger where
 
@@ -13,8 +13,6 @@ data Type = Type {
     } deriving (Typeable)
     
 $(mkLabels [''Type])
-
-instance (Has Magazine.Type l, Has Cooldown.Type l) => Supports Type l
 
 instance Updateable Type
 

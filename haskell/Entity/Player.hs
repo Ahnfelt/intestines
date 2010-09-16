@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, FlexibleContexts, UndecidableInstances #-}
-
 module Entity.Player where
 
 import Data.Typeable
@@ -16,7 +14,7 @@ import qualified Feature.Trigger as Trigger
 
 new :: Game (Entity ())
 new = object $ \this -> do
-    position <- Position.new (0,0)
+    position <- Position.new (0, 0)
     health <- Health.new 100
     controller <- Controller.new (method control this)
     trigger <- Trigger.new (method trig this)
@@ -36,4 +34,29 @@ new = object $ \this -> do
                 getL Trigger.trigger trigger
         trig this = do
             return ()
+
+{- 
+new :: Game (Entity ())
+new = object $ \this -> buildEntity $
+    Position.new (0, 0) .:.
+    Health.new 100 .:.
+    Controller.new (method control this) .:.
+    Trigger.new (method trig this) .:.
+    PrimaryWeapon.new trigger .:.
+    Inventory.new [] .:.
+    nil
+    where
+        control this = do
+            let position = requireFeature this
+            (x, y) <- get Position.position position
+            if x >= 10 
+                then Position.moveTo (0, y) position
+                else Position.moveBy (1, 0) position
+            let weapon = requireFeature this
+            when (x == 0) $ do
+                trigger <- get PrimaryWeapon.weapon weapon
+                getL Trigger.trigger trigger
+        trig this = do
+            return ()
+-}
 

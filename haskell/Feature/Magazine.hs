@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell, DeriveDataTypeable #-}
 
 module Feature.Magazine where
 
@@ -13,8 +13,6 @@ data Type = Type {
     } deriving (Typeable)
 
 $(mkLabels [''Type])
-
-instance Supports Type l
 
 instance Updateable Type
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, DeriveDataTypeable, FlexibleInstances, MultiParamTypeClasses, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskell, DeriveDataTypeable #-}
 
 module Feature.Controller where
 
@@ -13,8 +13,6 @@ data Type = Type {
     } deriving (Typeable)
     
 $(mkLabels [''Type])
-
-instance (Has Position.Type l, Has Inventory.Type l) => Supports Type l
 
 instance Updateable Type where
     updater self = Just $ getL controller self

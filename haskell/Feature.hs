@@ -6,7 +6,7 @@
 
 module Feature (
     GameState (..), Game, runGame, Var,
-    Supports (..), (.:.), Combine ((+++)), 
+    (.:.), Combine ((+++)), 
     Entity, toEntity, updateEntity, 
     requireFeature, RequireFeatures (..), 
     getFeature, GetFeatures (..), 
@@ -90,10 +90,8 @@ class Updateable e where
     updater _ = Nothing
     
 
-class Supports f l
-
 infixr 6 .:.
-(.:.) :: (Supports e l, HOccursNot e l, HExtend e l l') => e -> l -> l'
+(.:.) :: (HOccursNot e l, HExtend e l l') => e -> l -> l'
 a .:. b = a .*. b
 
 
