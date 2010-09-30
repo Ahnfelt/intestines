@@ -102,5 +102,6 @@ pressFunction :: Ord a => Bool -> a -> Set a -> Set a
 pressFunction True = Set.insert
 pressFunction False = Set.delete
 
-systemDown :: KeyState -> SystemKey -> Bool
-systemDown keyState systemKey = Set.member systemKey (system keyState)
+systemKeyDown :: KeyState -> SystemKey -> Bool
+systemKeyDown keyState systemKey = Set.member systemKey (system keyState)
+
