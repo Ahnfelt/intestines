@@ -2,7 +2,6 @@ module Display (display,idle) where
 
 import Graphics.Rendering.OpenGL
 import Graphics.UI.GLUT
-import Foreign 
 import Data.IORef
 import Cube
 import Points
