@@ -18,7 +18,7 @@ main = do
         drawPlayer player background screen (x, y) = do
             blitSurface background Nothing screen Nothing
             mapM_ (\d -> (do
-               blitSurface player Nothing screen (Just (Rect (x+d) (y+d) 0 0)))) [1..1000]
+               blitSurface player Nothing screen (Just (Rect (x) (y) 0 0)))) [1..5000]
             --delay 10
             SDL.flip screen
 
