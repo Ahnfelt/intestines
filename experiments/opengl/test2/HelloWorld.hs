@@ -13,6 +13,9 @@ main = do
     position <- newIORef (0.0::GLfloat, 0.0)
     keyboardMouseCallback $= Just (keyboardMouse delta position)
     idleCallback $= Just (idle angle delta)
-    displayCallback $= (display angle position)
+                 
+    drawGame dt
+
+    displayCallback $=z (display angle position)
     mainLoop
 

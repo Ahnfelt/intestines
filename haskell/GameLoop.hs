@@ -1,12 +1,23 @@
+module GameLoop where
 
-startGame :: (Double -> Map Int Keys -> IO ()) -> IO () -> IO ()
-startGame update draw = loop
+import Control.Concurrent.STM
+import qualified Graphics.UI.SDL as SDL
+
+import Input
+
+startGame :: (Double -> KeyState -> IO ()) -> IO () -> IO ()
+startGame update draw = do
+    let playerCount = 2
+    playerBindingsVar <- newDefaultPlayerBindings playerCount
+    loop (emptyKeyState playerCount) playerBindingsVar
     where
-        loop = do
+        loop keyState playerBindingsVar = do
             draw
-            update
-            (continue, keys) <- handleEvents keys
-            if continue then loop else quit
+            update 42 keyState
+            keyState' <- handleEvents playerBindingsVar keyState
+            if systemDown keyState' Menu 
+                then loop keyState' playerBindingsVar
+                else quit
 
 quit = do
     SDL.quit

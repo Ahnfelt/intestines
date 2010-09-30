@@ -1,3 +1,6 @@
+module Input where
+
+import Control.Concurrent.STM
 import qualified Graphics.UI.SDL as SDL
 import Graphics.UI.SDL.Keysym
 import Data.Set (Set)
@@ -6,10 +9,13 @@ import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Prelude hiding (Left, Right)
 
-data Input = Input {
+data KeyState = KeyState {
     players :: [PlayerKeys],
     system :: SystemKeys
     }
+
+emptyKeyState n = KeyState {players = take n $ repeat Set.empty, system = Set.empty} 
+
 
 data PlayerKey 
     = Up 
@@ -24,14 +30,18 @@ data SystemKey
     = Menu
     deriving (Show, Read, Eq, Ord, Enum, Bounded)
 
-type PlayerConfiguration = PlayerKey -> SDL.SDLKey
+type PlayerKeyBindings = PlayerKey -> SDL.SDLKey
 type PlayerKeys = Set PlayerKey
 type SystemKeys = Set SystemKey
 
-systemConfiguration key = case key of
+systemBindings :: SystemKey -> SDLKey
+systemBindings key = case key of
     Menu -> SDLK_ESCAPE
 
-defaultConfigurations = [
+newDefaultPlayerBindings :: Int -> IO (TVar [PlayerKeyBindings])
+newDefaultPlayerBindings n = atomically $ newTVar $ defaultPlayerBindings n
+
+defaultPlayerBindings n = take n [
     \key -> case key of
         Up -> SDLK_UP
         Down -> SDLK_DOWN
@@ -47,44 +57,50 @@ defaultConfigurations = [
         Primary -> SDLK_a
         Secondary -> SDLK_q]
 
-inverseConfiguration :: (a -> b) -> Map b a
-inverseConfiguration configuration = Map.fromList $ map (\k -> (configuration k, k)) [minBound..maxBound]
+inverseBindings :: (Enum a, Bounded a, Ord b) => (a -> b) -> Map b a
+inverseBindings bindings = Map.fromList $ map (\k -> (bindings k, k)) [minBound..maxBound]
 
-handleEvents configurations input = do
-    event <- SDL.pollEvent
-    if event /= SDL.NoEvent
-        then do
-            input' <- handleEvent configurations input event
-            handleEvents configurations input'
-        else return input
+pollEvents :: IO [SDL.Event]
+pollEvents = do
+    events <- sequence $ repeat SDL.pollEvent
+    return $ takeWhile (/= SDL.NoEvent) events
 
-handleEvent configurations input event = do
+handleEvents :: (TVar [PlayerKeyBindings]) -> KeyState -> IO KeyState
+handleEvents bindingsVar keyState = do 
+    events <- pollEvents
+    bindings <- atomically $ readTVar bindingsVar
+    return $ foldl (\ks e -> handleEvent bindings ks e) keyState events
+
+handleEvent :: [PlayerKeyBindings] -> KeyState -> SDL.Event ->  KeyState
+handleEvent bindings keyState event = 
     case event of
-        SDL.KeyDown SDL.Keysym { SDL.symKey = key } -> return $ press key True
-        SDL.KeyUp SDL.Keysym { SDL.symKey = key } -> return $ press key False
-        SDL.Quit -> return input
-        _ -> return input
+        SDL.KeyDown SDL.Keysym { SDL.symKey = key } -> press key True
+        SDL.KeyUp SDL.Keysym { SDL.symKey = key } -> press key False
+        SDL.Quit -> keyState
+        _ -> keyState
     where
-        press key pressed = systemPress' key pressed $ playerPress' key pressed input
-        systemPress' key pressed input = input { system = systemPress key pressed (system input) }
-        playerPress' key pressed input = input { players = map (playerPress key pressed) (zip configurations (players input)) }
+        press key pressed = systemPress' key pressed $ playerPress' key pressed keyState
+        systemPress' key pressed keyState = keyState { system = systemPress key pressed (system keyState) }
+        playerPress' key pressed keyState = keyState { players = map (playerPress key pressed) (zip bindings (players keyState)) }
 
 
-playerPress :: SDL.SDLKey -> Bool -> (PlayerConfiguration, PlayerKeys) -> PlayerKeys
-playerPress key pressed (configuration, playerKeys) =
-    let keys = inverseConfiguration configuration in
+playerPress :: SDL.SDLKey -> Bool -> (PlayerKeyBindings, PlayerKeys) -> PlayerKeys
+playerPress key pressed (bindings, playerKeys) =
+    let keys = inverseBindings bindings in
     case Map.lookup key keys of
         Just key -> pressFunction pressed key playerKeys 
         Nothing -> playerKeys
 
 systemPress :: SDL.SDLKey -> Bool -> SystemKeys -> SystemKeys
 systemPress key pressed systemKeys = 
-    let keys = inverseConfiguration systemConfiguration in
+    let keys = inverseBindings systemBindings in
     case Map.lookup key keys of
         Just key -> pressFunction pressed key systemKeys 
         Nothing -> systemKeys
 
-pressFunction :: Bool -> a -> Set a -> Set a
+pressFunction :: Ord a => Bool -> a -> Set a -> Set a
 pressFunction True = Set.insert
 pressFunction False = Set.delete
 
+systemDown :: KeyState -> SystemKey -> Bool
+systemDown keyState systemKey = Set.member systemKey (system keyState)
